@@ -141,6 +141,10 @@ class MainWindow(QMainWindow, WindowMixin):
         self.comboBox = ComboBox(self)
         listLayout.addWidget(self.comboBox)
 
+        self.directionLabel = QLabel()
+        self.directionLabel.setAlignment(QtCore.Qt.AlignCenter)
+        listLayout.addWidget(self.directionLabel)
+
         # Create and add a widget for showing current label items
         self.labelList = QListWidget()
         labelListContainer = QWidget()
@@ -367,6 +371,8 @@ class MainWindow(QMainWindow, WindowMixin):
         self.singleClassMode.setCheckable(True)
         self.singleClassMode.setChecked(settings.get(SETTING_SINGLE_CLASS, False))
         self.lastLabel = None
+        self.lastAngle = None
+        self.lastDirection = None
         # Add option to enable/disable labels being displayed at the top of bounding boxes
         self.displayLabelOption = QAction(getStr('displayLabel'), self)
         self.displayLabelOption.setShortcut("Ctrl+Shift+P")
@@ -673,8 +679,11 @@ class MainWindow(QMainWindow, WindowMixin):
         item = self.currentItem()
         if not item:
             return
-        text = self.labelDialog.popUp(item.text())
+        shape = self.itemsToShapes[item]
+        text, angle, direction = self.labelDialog.popUp(item.text(), shape.angle, shape.direction)
         if text is not None:
+            shape.angle = angle
+            shape.direction = direction
             item.setText(text)
             item.setBackground(generateColorByText(text))
             self.setDirty()
@@ -756,8 +765,8 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def loadLabels(self, shapes):
         s = []
-        for label, points, line_color, fill_color, difficult in shapes:
-            shape = Shape(label=label)
+        for label, angle, direction, points, line_color, fill_color, difficult in shapes:
+            shape = Shape(label=label, angle=angle, direction=direction)
             for x, y in points:
 
                 # Ensure the labels are within the bounds of the image. If not, fix them.
@@ -803,6 +812,8 @@ class MainWindow(QMainWindow, WindowMixin):
 
         def format_shape(s):
             return dict(label=s.label,
+                        angle=s.angle,
+                        direction=s.direction,
                         line_color=s.line_color.getRgb(),
                         fill_color=s.fill_color.getRgb(),
                         points=[(p.x(), p.y()) for p in s.points],
@@ -849,6 +860,9 @@ class MainWindow(QMainWindow, WindowMixin):
     def labelSelectionChanged(self):
         item = self.currentItem()
         if item and self.canvas.editing():
+            shape = self.itemsToShapes[item]
+            self.directionLabel.setText(shape.angle + "," + shape.direction)
+
             self._noSelectionSlot = True
             self.canvas.selectShape(self.itemsToShapes[item])
             shape = self.itemsToShapes[item]
@@ -878,10 +892,12 @@ class MainWindow(QMainWindow, WindowMixin):
 
             # Sync single class mode from PR#106
             if self.singleClassMode.isChecked() and self.lastLabel:
-                text = self.lastLabel
+                text, angle, direction = self.lastLabel, self.lastAngle, self.lastDirection
             else:
-                text = self.labelDialog.popUp(text=self.prevLabelText)
+                text, angle, direction = self.labelDialog.popUp(text=self.prevLabelText)
                 self.lastLabel = text
+                self.lastAngle = angle
+                self.lastDirection = direction
         else:
             text = self.defaultLabelTextLine.text()
 
@@ -890,7 +906,7 @@ class MainWindow(QMainWindow, WindowMixin):
         if text is not None:
             self.prevLabelText = text
             generate_color = generateColorByText(text)
-            shape = self.canvas.setLastLabel(text, generate_color, generate_color)
+            shape = self.canvas.setLastLabel(text, angle, direction, generate_color, generate_color)
             self.addLabel(shape)
             if self.beginner():  # Switch to edit mode.
                 self.canvas.setEditing(True)

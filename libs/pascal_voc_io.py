@@ -77,9 +77,11 @@ class PascalVocWriter:
         segmented.text = '0'
         return top
 
-    def addBndBox(self, xmin, ymin, xmax, ymax, name, difficult):
+    def addBndBox(self, xmin, ymin, xmax, ymax, name, angle, direction, difficult):
         bndbox = {'xmin': xmin, 'ymin': ymin, 'xmax': xmax, 'ymax': ymax}
         bndbox['name'] = name
+        bndbox['angle'] = angle
+        bndbox['direction'] = direction
         bndbox['difficult'] = difficult
         self.boxlist.append(bndbox)
 
@@ -88,6 +90,10 @@ class PascalVocWriter:
             object_item = SubElement(top, 'object')
             name = SubElement(object_item, 'name')
             name.text = ustr(each_object['name'])
+            angle = SubElement(object_item, 'angle')
+            angle.text = ustr(each_object['angle'])
+            direction = SubElement(object_item, 'direction')
+            direction.text = ustr(each_object['direction'])
             pose = SubElement(object_item, 'pose')
             pose.text = "Unspecified"
             truncated = SubElement(object_item, 'truncated')
@@ -140,13 +146,13 @@ class PascalVocReader:
     def getShapes(self):
         return self.shapes
 
-    def addShape(self, label, bndbox, difficult):
+    def addShape(self, label, angle, direction, bndbox, difficult):
         xmin = int(float(bndbox.find('xmin').text))
         ymin = int(float(bndbox.find('ymin').text))
         xmax = int(float(bndbox.find('xmax').text))
         ymax = int(float(bndbox.find('ymax').text))
         points = [(xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax)]
-        self.shapes.append((label, points, None, None, difficult))
+        self.shapes.append((label, angle, direction, points, None, None, difficult))
 
     def parseXML(self):
         assert self.filepath.endswith(XML_EXT), "Unsupport file format"
@@ -163,9 +169,11 @@ class PascalVocReader:
         for object_iter in xmltree.findall('object'):
             bndbox = object_iter.find("bndbox")
             label = object_iter.find('name').text
+            angle = object_iter.find('angle').text
+            direction = object_iter.find('direction').text
             # Add chris
             difficult = False
             if object_iter.find('difficult') is not None:
                 difficult = bool(int(object_iter.find('difficult').text))
-            self.addShape(label, bndbox, difficult)
+            self.addShape(label, angle, direction, bndbox, difficult)
         return True

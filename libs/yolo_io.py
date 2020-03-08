@@ -22,9 +22,11 @@ class YOLOWriter:
         self.localImgPath = localImgPath
         self.verified = False
 
-    def addBndBox(self, xmin, ymin, xmax, ymax, name, difficult):
+    def addBndBox(self, xmin, ymin, xmax, ymax, name, angle, direction, difficult):
         bndbox = {'xmin': xmin, 'ymin': ymin, 'xmax': xmax, 'ymax': ymax}
         bndbox['name'] = name
+        bndbox['angle'] = angle
+        bndbox['direction'] = direction
         bndbox['difficult'] = difficult
         self.boxlist.append(bndbox)
 
@@ -44,10 +46,17 @@ class YOLOWriter:
         boxName = box['name']
         if boxName not in classList:
             classList.append(boxName)
+        angle = box['angle']
+        direction = box['direction']
+
+        angleItem = ['上', '左', '右', '下', '倾斜']
+        directionItem = ['正对', '侧对']
 
         classIndex = classList.index(boxName)
+        angleIndex = angleItem.index(angle)
+        directionIndex = directionItem.index(direction)
 
-        return classIndex, xcen, ycen, w, h
+        return classIndex, angleIndex, directionIndex, xcen, ycen, w, h
 
     def save(self, classList=[], targetFile=None):
 
@@ -67,9 +76,9 @@ class YOLOWriter:
 
 
         for box in self.boxlist:
-            classIndex, xcen, ycen, w, h = self.BndBox2YoloLine(box, classList)
+            classIndex, angleIndex, directionIndex, xcen, ycen, w, h = self.BndBox2YoloLine(box, classList)
             # print (classIndex, xcen, ycen, w, h)
-            out_file.write("%d %.6f %.6f %.6f %.6f\n" % (classIndex, xcen, ycen, w, h))
+            out_file.write("%d %d %d %.6f %.6f %.6f %.6f\n" % (classIndex, angleIndex, directionIndex, xcen, ycen, w, h))
 
         # print (classList)
         # print (out_class_file)
@@ -116,13 +125,18 @@ class YoloReader:
     def getShapes(self):
         return self.shapes
 
-    def addShape(self, label, xmin, ymin, xmax, ymax, difficult):
+    def addShape(self, label, angle, direction, xmin, ymin, xmax, ymax, difficult):
 
         points = [(xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax)]
-        self.shapes.append((label, points, None, None, difficult))
+        self.shapes.append((label, angle, direction, points, None, None, difficult))
 
-    def yoloLine2Shape(self, classIndex, xcen, ycen, w, h):
+    def yoloLine2Shape(self, classIndex, angleIndex, directionIndex, xcen, ycen, w, h):
         label = self.classes[int(classIndex)]
+
+        angleItem = ['上', '左', '右', '下', '倾斜']
+        directionItem = ['正对', '侧对']
+        angle = angleItem[angleIndex]
+        direction = directionItem[directionIndex]
 
         xmin = max(float(xcen) - float(w) / 2, 0)
         xmax = min(float(xcen) + float(w) / 2, 1)
@@ -134,13 +148,13 @@ class YoloReader:
         ymin = int(self.imgSize[0] * ymin)
         ymax = int(self.imgSize[0] * ymax)
 
-        return label, xmin, ymin, xmax, ymax
+        return label, angle, direction, xmin, ymin, xmax, ymax
 
     def parseYoloFormat(self):
         bndBoxFile = open(self.filepath, 'r')
         for bndBox in bndBoxFile:
-            classIndex, xcen, ycen, w, h = bndBox.split(' ')
-            label, xmin, ymin, xmax, ymax = self.yoloLine2Shape(classIndex, xcen, ycen, w, h)
+            classIndex, angleIndex, directionIndex, xcen, ycen, w, h = bndBox.split(' ')
+            label, angle, direction, xmin, ymin, xmax, ymax = self.yoloLine2Shape(classIndex, angleIndex, directionIndex, xcen, ycen, w, h)
 
             # Caveat: difficult flag is discarded when saved as yolo format.
-            self.addShape(label, xmin, ymin, xmax, ymax, False)
+            self.addShape(label, angle, direction, xmin, ymin, xmax, ymax, False)
