@@ -135,8 +135,8 @@ class YoloReader:
 
         angleItem = ['上', '左', '右', '下', '倾斜']
         directionItem = ['正对', '侧对']
-        angle = angleItem[angleIndex]
-        direction = directionItem[directionIndex]
+        angle = angleItem[int(angleIndex)]
+        direction = directionItem[int(directionIndex)]
 
         xmin = max(float(xcen) - float(w) / 2, 0)
         xmax = min(float(xcen) + float(w) / 2, 1)
